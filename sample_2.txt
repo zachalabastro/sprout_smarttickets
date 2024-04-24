@@ -1,0 +1,9 @@
+Hello GCash Support,
+
+I've encountered an issue where payments made through GPay's 
+QR feature are not going through. Multiple attempts at different 
+merchants result in a 'Payment Failed' message, despite having 
+sufficient balance. This started two days ago, and I need to use the 
+QR payment feature for daily transactions.
+
+Please look into this promptly, as it's impacting my ability to make purchases.
