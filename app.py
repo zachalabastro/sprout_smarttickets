@@ -1,4 +1,4 @@
-# Install modules
+# Install Dependencies
 import os
 import time
 import streamlit as st
@@ -9,6 +9,20 @@ import openai
 from PIL import Image
 import pytesseract
 import PyPDF2
+
+# Load ML Pkgs
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+
+# Transformers
+from sklearn.feature_extraction.text import CountVectorizer
+
+# Others
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+
+# Load Pkgs
+from sklearn.multioutput import MultiOutputClassifier
 
 # Load file upload folder
 upload_dir = "file_upload" # Replace accordingly
@@ -27,6 +41,17 @@ df.insert(loc=2, column='Complete Ticket', value=df.pop('Complete Ticket'))
 # Turn int into a str
 df['Support Level'] = df['Support Level'].astype(str)
 
+# Features & Labels
+Xfeatures = df['Complete Ticket']
+ylabels = df[['Type of Product','Priority','Type of Complaint','Support Level']]
+
+# Split Data
+x_train,x_test,y_train,y_test = train_test_split(Xfeatures,ylabels,test_size=0.5,random_state=7)
+
+# Build a pieline for the model
+pipe_lr = Pipeline(steps=[('cv',CountVectorizer()),
+                        ('lr_multi',MultiOutputClassifier(LogisticRegression()))])
+
 # Load Dataset labels
 product = df['Type of Product'].unique()
 priority = df['Priority'].unique()
@@ -42,88 +67,6 @@ openai.api_key = os.environ.get("AZURE_OPENAI_KEY")
 # Define the Streamlit app layout
 def main():
     st.title('Customer Advocacy SmartTickets')
-    st.markdown(
-        """
-        <style>
-        .form-container {
-            width: 75%;
-            max-width: 1000px;
-            padding: 20px;
-            padding-top: 15px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            background-color: #9AB379;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            align-items: center;
-            display: flex;
-            flex-direction: column;
-            margin: 0px;
-            margin-bottom: 20px; /* Add margin-bottom for space */
-        }
-
-        .input-field,
-        .input-field-long {
-            width: calc(100%); /* 20px padding and 1px border on each side */
-            padding: 10px;
-            margin-top: 15px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-
-        .input-field-long {
-            min-height: 150px; /* Or any other height */
-        }
-
-        .submit-button {
-            width: 100%;
-            padding: 10px;
-            border: none;
-            border-radius: 4px;
-            background-color: #F5F5F5;
-            color: #000;
-            cursor: pointer;
-            box-sizing: border-box;
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-
-        .submit-button:hover {
-            background-color: #444F37;
-            color: #f4f4f4;
-        }
-
-        .header {
-            background-color: #444F37;
-            padding: 5px;
-            margin-top: 0px;
-            margin-bottom: 15px;
-            width: 100%;
-            border-radius: 8px;
-        }
-
-        .header h1 {
-            text-align: center;
-            color: white;
-            margin-top: 2.5px;
-            margin-bottom: 2.5px;
-        }
-        </style>
-
-         <script>
-            function copyToClipboard(btn) {
-                var text = btn.closest('tr').children[1].innerText;
-                var dummy = document.createElement("textarea");
-                document.body.appendChild(dummy);
-                dummy.value = text;
-                dummy.select();
-                document.execCommand("copy");
-                document.body.removeChild(dummy);
-            }
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
 
     # Form inputs
     with st.form(key='my_form'):
@@ -204,16 +147,26 @@ def main():
         # Concatenate final string
         input_text = subject_type + "; " + ticket_body
 
+        # Fit on Dataset
+        pipe_lr.fit(x_train,y_train)
+
+        # Accuracy Score
+        pipe_lr.score(x_test,y_test)
+
+        # ML estimators for multi-output classification
+        pipe = Pipeline(steps=[('cv',CountVectorizer()),('rf',KNeighborsClassifier(n_neighbors=4))])
+
         # Form submission
         if submit_button and (not subject_type or not ticket_body):
             st.warning('Please fill in both Subject Type and Ticket Body.')
         elif submit_button and (subject_type and ticket_body):
             with st.spinner('Loading Ticket Tags...'):
                 prompt = f"""
-                Look at the information from '''{df}'''. Understand the relationships between the
-                columns, rows, and how the values are correspond to each other. These are customer
-                complaints that are categorized into certain tags, specificially: Type of Product, Priority,
-                Type of Complaint, and Support Level. Identify why, and train yourself on the distinctions.
+                Look at the information from '''{df}'''. Train yourself using these:
+                 '''{x_train}''', '''{x_test}''', '''{y_train}''', '''{y_test}''', and '''{pipe}'''.
+                Understand the relationships between the columns, rows, and how the values are correspond. 
+                These are customer complaints that are categorized into certain tags, specificially: 
+                Type of Product, Priority, Type of Complaint, and Support Level.
 
                 Now, I want you to predict the 4 different labels for a new set of client complaint.
                 Please provide the tags of the following context:
