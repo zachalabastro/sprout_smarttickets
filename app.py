@@ -10,20 +10,6 @@ from PIL import Image
 import pytesseract
 import PyPDF2
 
-# Load ML Pkgs
-from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
-
-# Transformers
-from sklearn.feature_extraction.text import CountVectorizer
-
-# Others
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
-
-# Load Pkgs
-from sklearn.multioutput import MultiOutputClassifier
-
 # Load file upload folder
 upload_dir = "file_upload" # Replace accordingly
 output_dir = "file_output" # Replace accordingly
@@ -31,32 +17,19 @@ output_file = "file_output/final_output.txt" # Replace accordingly
 os.makedirs(upload_dir, exist_ok=True)
 
 # Load Dataset
-df = pd.read_csv("dependencies/synthetic_data.csv")
+df = pd.read_csv("dependencies/CA_data.csv")
+df = df.dropna()
 df = df.rename(columns=lambda x: x.strip())
 
-# Concatenate Ticket Subject and Body
-df['Complete Ticket'] = df['Client Complaint'].str.cat(df['Ticket Body'], sep='; ')
-df.insert(loc=2, column='Complete Ticket', value=df.pop('Complete Ticket'))
-
-# Turn int into a str
-df['Support Level'] = df['Support Level'].astype(str)
-
 # Features & Labels
-Xfeatures = df['Complete Ticket']
-ylabels = df[['Type of Product','Priority','Type of Complaint','Support Level']]
-
-# Split Data
-x_train,x_test,y_train,y_test = train_test_split(Xfeatures,ylabels,test_size=0.5,random_state=7)
-
-# Build a pieline for the model
-pipe_lr = Pipeline(steps=[('cv',CountVectorizer()),
-                        ('lr_multi',MultiOutputClassifier(LogisticRegression()))])
+Xfeatures = df['Ticket Subject']
+ylabels = df[['Ticket Type', 'Ticket Priority', 'Module', 'Product']]
 
 # Load Dataset labels
-product = df['Type of Product'].unique()
-priority = df['Priority'].unique()
-type_complaint = df['Type of Complaint'].unique()
-support = df['Support Level'].unique()
+type = df['Ticket Type'].unique()
+priority = df['Ticket Priority'].unique()
+module = df['Module'].unique()
+product = df['Product'].unique()
 
 # Azure OpenAI Key
 openai.api_type = "azure"
@@ -68,7 +41,7 @@ openai.api_key = os.environ.get("AZURE_OPENAI_KEY")
 def main():
     st.title('Customer Advocacy SmartTickets')
 
-    # Form inputs
+    # Form input
     with st.form(key='my_form'):
         st.header('Submit a Ticket')
         st.markdown("<hr>", unsafe_allow_html=True)
@@ -77,7 +50,7 @@ def main():
         # File uploads
         subject_type = st.text_input('Subject Type', max_chars=100)
         ticket_body = st.text_area('Ticket Body', height=150)   
-        uploaded_files = st.file_uploader('Upload Screenshots', type=["jpg", "pdf", "png", "jpeg"], accept_multiple_files=True)
+        uploaded_files = st.file_uploader('Upload Screenshots', type=["jpg", "png", "jpeg"], accept_multiple_files=True)
         
         # Upload file button (not a requirement)
         upload_file_button = st.form_submit_button(label='Upload Files')
@@ -136,8 +109,8 @@ def main():
                         file_contents = file.read()
                 output.write(file_contents + '\n---\n')
         with open(output_file, 'r') as context:
-            global final_context
-            final_context = context.read()
+            global screenshot_text
+            screenshot_text = context.read()
 
         st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -147,44 +120,35 @@ def main():
         # Concatenate final string
         input_text = subject_type + "; " + ticket_body
 
-        # Fit on Dataset
-        pipe_lr.fit(x_train,y_train)
-
-        # Accuracy Score
-        pipe_lr.score(x_test,y_test)
-
-        # ML estimators for multi-output classification
-        pipe = Pipeline(steps=[('cv',CountVectorizer()),('rf',KNeighborsClassifier(n_neighbors=4))])
-
         # Form submission
         if submit_button and (not subject_type or not ticket_body):
             st.warning('Please fill in both Subject Type and Ticket Body.')
         elif submit_button and (subject_type and ticket_body):
             with st.spinner('Loading Ticket Tags...'):
                 prompt = f"""
-                Look at the information from '''{df}'''. Train yourself using these:
-                 '''{x_train}''', '''{x_test}''', '''{y_train}''', '''{y_test}''', and '''{pipe}'''.
+                Look at the information from '''{df}''', {Xfeatures}''' and '''{ylabels}'''. Train on the 
+                relations that they have with one another. Train yourself 3 times.
                 Understand the relationships between the columns, rows, and how the values are correspond. 
-                These are customer complaints that are categorized into certain tags, specificially: 
-                Type of Product, Priority, Type of Complaint, and Support Level.
+                These are customer complaints that are categorized into certain tags, specifically: 
+                Ticket Type, Ticket Priority, Module, and Product Type.
 
                 Now, I want you to predict the 4 different labels for a new set of client complaint.
                 Please provide the tags of the following context:
-                '''{input_text}'''. If the screenshot context '''{final_context}''' 
+                '''{input_text}'''. If the screenshot context '''{screenshot_text}''' 
                 is not empty, use this as context also.
 
                 After summarizing and analyzing the text, please classify 
                 the ticket with the following labels:
 
-                - Type of Product: 
-                - Priority: 
-                - Type of Complaint: 
-                - Support Level:
+                - Ticket Type: 
+                - Ticket Priority: 
+                - Module: 
+                - Product Type:
 
                 The FINAL/ONLY CONTENT OUTPUT should be in a Python list format, from product, priority, complaint, and support.
-                Example: ['GPay', 'Not Urgent', 'Payment Issue', '4']
+                Example: ['Question', 'High', 'Salary', 'Sprout HR']
 
-                These must all be based from the list of '''{product}''', '''{priority}''', '''{type_complaint}''', and '''{support}'''.
+                These must all be based from the list of '''{type}''', '''{priority}''', '''{module}''', and '''{product}'''.
                 """
                 
                 ticket_output = openai.ChatCompletion.create(
@@ -203,52 +167,6 @@ def main():
                 value_3 = tag_list[2]
                 value_4 = tag_list[3]
 
-                product_crit = f"""
-                Mobile Payments: GCash allows users to make mobile payments securely and conveniently.
-                GSave: A high-yield savings account that offers users options between CIMB Bank Philippines, BPI, and Maybank Philippines.
-                GCredit: A revolving mobile credit line initially powered by Fuse Lending, later transferred to CIMB Bank.
-                GCash Padala: A remittance service available to both app users and non-app users through partner outlets.
-                GCash Jr.: Designed for users aged 7 to 17, offering a tailored experience.
-                Double Safe: A security feature requiring facial identification from customers to enhance safety.
-                GForest: Allows users to collect green energy by engaging in eco-friendly activities.
-                GLife: An app where users can shop for various products from their favorite brands.
-                KKB: Enables users to split bills with friends, even if they do not have GCash.
-                GGives: Offers a buy now, pay later service with flexible payments.
-                GInsure: Provides affordable insurance options within the GCash app.
-                GCash Pera Outlet: Allows individuals to earn money by becoming a GCash Pera Outlet.
-                GCredit: Provides users with a credit line for extended budget flexibility.
-                GLoan: Offers pre-approved access to cash loans instantly without collateral.
-                GFunds: Enables users to invest in funds managed by partner providers.
-                GSave: A feature that helps users save for the future conveniently within the GCash app.
-                """
-
-                priority_crit = f"""
-                Urgent: Issues causing critical service disruption or financial loss.
-                Not Urgent: Non-critical issues with no immediate impact on operations or customer satisfaction.
-                Normal: Routine inquiries or requests not requiring immediate attention or action.
-                """
-
-                complaint_crit = f"""
-                Account Issue: Customer account-related problems with significant impact.
-                Transaction Failure: Failures in financial transactions with substantial consequences.
-                Technical Issue: Technical problems affecting the service or application.
-                Claim Issue: Disputes or problems related to claims processing.
-                Account Access: Difficulties accessing the customer's account or system.
-                Billing Error: Errors in billing or invoicing processes.
-                Application Error: Errors or malfunctions within the application or software.
-                Payment Issue: Issues related to payment processing or transactions.
-                Disbursement Issue: Problems with disbursement or distribution of funds.
-                Service Issue: General issues with the service provided.
-                Activation Error: Errors during the activation process of a service or product.
-                """
-
-                support_crit = f"""
-                1 - Requires extensive specialized support and engineering assistance.
-                2 - Requires minor specialized support from engineering or technical staff.
-                3 - Requires assistance from experienced Customer Advocacy (CA) members.
-                4 - Can be handled by any member of Customer Advocacy (CA) team.
-                """
-
                 # Create an empty list for accuracy
                 rationale_list = []
 
@@ -257,11 +175,8 @@ def main():
                 such given category tag: '''{value_1}'''. The context for your explanation
                 will come from '''{input_text}'''.
 
-                Explanation Format Sample: Ticket was given product tag 'GCredit' because it primarily revolves around mobile credit concerns raised.
-                Do NOT include any commas (",") in the explanataion. Be straightforward in producing the sentence.
-
-                Here is the criteria as basis for your explanation:
-                '''{product_crit}'''
+                Train yourself using these information provided:
+                '''{df}''', '''{Xfeatures}''' and '''{ylabels}'''.
                 """
 
                 rat_output_1 = openai.ChatCompletion.create(
@@ -279,11 +194,8 @@ def main():
                 such given category tag: '''{value_2}'''. The context for your explanation
                 will come from '''{input_text}'''.
 
-                Explanation Format Sample: Ticket was given product tag 'GCredit' because it primarily revolves around mobile credit concerns raised.
-                Do NOT include any commas (",") in the explanataion. Be straightforward in producing the sentence.
-
-                Here is the criteria as basis for your explanation:
-                '''{priority_crit}'''
+                Train yourself using these information provided:
+                '''{df}''', '''{Xfeatures}''' and '''{ylabels}'''.
                 """
 
                 rat_output_2 = openai.ChatCompletion.create(
@@ -301,11 +213,8 @@ def main():
                 such given category tag: '''{value_3}'''. The context for your explanation
                 will come from '''{input_text}'''.
 
-                Explanation Format Sample: Ticket was given product tag 'GCredit' because it primarily revolves around mobile credit concerns raised.
-                Do NOT include any commas (",") in the explanataion. Be straightforward in producing the sentence.
-
-                Here is the criteria as basis for your explanation:
-                '''{complaint_crit}'''
+                Train yourself using these information provided:
+                '''{df}''', '''{Xfeatures}''' and '''{ylabels}'''.
                 """
 
                 rat_output_3 = openai.ChatCompletion.create(
@@ -323,11 +232,8 @@ def main():
                 such given category tag: '''{value_4}'''. The context for your explanation
                 will come from '''{input_text}'''.
 
-                Explanation Format Sample: Ticket was given product tag 'GCredit' because it primarily revolves around mobile credit concerns raised.
-                Do NOT include any commas (",") in the explanataion. Be straightforward in producing the sentence.
-
-                Here is the criteria as basis for your explanation:
-                '''{support_crit}'''
+                Train yourself using these information provided:
+                '''{df}''', '''{Xfeatures}''' and '''{ylabels}'''.
                 """
 
                 rat_output_4 = openai.ChatCompletion.create(
@@ -356,24 +262,24 @@ def main():
             col1, col2 = st.columns(2)
             
             with col1:
-                st.markdown("Type of Product")
+                st.markdown("Ticket Type")
                 st.code(value_1, language="python")
                 st.markdown(rationale_1)
 
             with col2:
-                st.markdown("Type of Complaint")
+                st.markdown("Module")
                 st.code(value_3, language="python")
                 st.markdown(rationale_3)
 
             col3, col4 = st.columns(2)
 
             with col3:
-                st.markdown("Priority Level")
+                st.markdown("Ticket Priority")
                 st.code(value_2, language="python")
                 st.markdown(rationale_2)
 
             with col4:
-                st.markdown("Support Level")
+                st.markdown("Product")
                 st.code(value_4, language="python")
                 st.markdown(rationale_4)
 
