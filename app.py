@@ -2,13 +2,13 @@
 import os
 import time
 import streamlit as st
-from st_copy_to_clipboard import st_copy_to_clipboard
 import ast
 import pandas as pd
 import openai
-from PIL import Image
 import pytesseract
 import PyPDF2
+from PIL import Image
+from st_copy_to_clipboard import st_copy_to_clipboard
 
 # Load file upload folder
 upload_dir = "file_upload" # Replace accordingly
@@ -16,20 +16,12 @@ output_dir = "file_output" # Replace accordingly
 output_file = "file_output/final_output.txt" # Replace accordingly
 os.makedirs(upload_dir, exist_ok=True)
 
-# Load Dataset
-df = pd.read_csv("dependencies/CA_data.csv")
-df = df.dropna()
-df = df.rename(columns=lambda x: x.strip())
-
-# Features & Labels
-Xfeatures = df['Ticket Subject']
-ylabels = df[['Ticket Type', 'Ticket Priority', 'Module', 'Product']]
-
 # Load Dataset labels
-type = df['Ticket Type'].unique()
-priority = df['Ticket Priority'].unique()
-module = df['Module'].unique()
-product = df['Product'].unique()
+df_full = pd.read_csv("dependencies/CA_full.csv") # To provide the LLM with the tag options
+type = df_full['Ticket Type'].unique()
+priority = df_full['Ticket Priority'].unique()
+module = df_full['Module'].unique()
+product = df_full['Product'].unique()
 
 # Azure OpenAI Key
 openai.api_type = "azure"
@@ -125,36 +117,62 @@ def main():
             st.warning('Please fill in both Subject Type and Ticket Body.')
         elif submit_button and (subject_type and ticket_body):
             with st.spinner('Loading Ticket Tags...'):
+
+                # Load Dataset
+                df = pd.read_csv("dependencies/fewshot_3final.csv") # Examples for few-shot inferencing
+                df = df.rename(columns=lambda x: x.strip())
+
+                # Criteria
+                ticket_type_crit = """
+                Question: Inquiries or clarifications about functionalities, how to use features, or general information requests not directly related to issues or disruptions.
+                Problem: Reports of malfunctions, errors, or unexpected behavior in the system that adversely affects the user's ability to utilize the service or product effectively.
+                Task: Requests for specific actions such as configurations, setups, modifications, or the processing of standard procedures.
+                Enhancement: Suggestions for improving existing features or adding new functionalities that can enhance the user experience or product capabilities.
+                Non Support: Tickets that do not pertain to specific support issues or queries, including spam, test messages, or irrelevant communications.
+                """
+
+                ticket_priority_crit = """
+                Normal: Routine inquiries or requests that do not require immediate action. These tickets can be resolved within standard response times without significant impact on customer operations or satisfaction.
+                Low: Tickets that have minor impact on operations and do not require immediate attention. These can be scheduled for resolution according to standard workflows and do not require urgent follow-up.
+                High: Tickets that affect key operations or have a significant impact on user experience. These require prompt attention and resolution to mitigate impact but are not immediately threatening to business continuity or critical operations.
+                Urgent: Issues causing critical service disruption or potential significant financial loss. These require immediate resolution to prevent extensive impact on business operations or customer satisfaction.
+                """
+
+                product_type_crit = """
+                Sprout HR: Tickets related to the comprehensive human resources management system designed for employee data tracking, leave and benefits administration, compliance with labor laws, and other HR functions. This includes issues with setting up employee profiles, managing leave requests, and accessing HR reports.
+                Sprout Payroll: Tickets concerning the payroll management system focused on automating payroll calculations, generating payslips, managing tax obligations, and other payroll-related processes. This covers problems with tax calculation accuracy, payroll processing errors, and configuration of payroll settings.
+                Sprout Instacash: Tickets associated with the short-term loan facility offered to employees directly via the platform, covering loan application processes, approval status updates, repayment issues, and eligibility queries.
+                Sprout Performance+: Tickets related to the employee performance management module that helps organizations set performance goals, conduct evaluations, and manage feedback. This includes issues related to goal setting functionalities, performance tracking discrepancies, and report generation.
+                Sprout Mobile: Tickets dealing with the mobile application extensions of Sprout's products, focusing on user interface issues, mobile app crashes, feature accessibility, and synchronization problems between desktop and mobile platforms.
+                Sprout Insight: Tickets focusing on the advanced analytics and reporting tool that provides business intelligence solutions for HR data, including detailed analytics on workforce statistics, trend analysis, and custom report issues.
+                Sprout Ecosystem: Tickets that address interactions and integrations between various Sprout products, focusing on seamless data flow, user experience across platforms, and integration issues that affect multiple components of the Sprout ecosystem.
+                Sprout Pulse: Tickets related to the tools for measuring and enhancing employee engagement and organizational health, such as survey distribution problems, analysis of employee feedback, and issues with deploying engagement initiatives.
+                """
+
                 prompt = f"""
-                Look at the information from '''{df}''', {Xfeatures}''' and '''{ylabels}'''. Train on the 
-                relations that they have with one another. Train yourself 3 times.
-                Understand the relationships between the columns, rows, and how the values are correspond. 
-                These are customer complaints that are categorized into certain tags, specifically: 
-                Ticket Type, Ticket Priority, Module, and Product Type.
+                Now, I want you to predict the 4 different labels for a new client complaint.
+                Please provide the tags of the following context: '''{input_text}'''. 
+                
+                If the screenshot context '''{screenshot_text}''' 
+                is not empty, use this as context also. If empty, don't mind it.
 
-                Now, I want you to predict the 4 different labels for a new set of client complaint.
-                Please provide the tags of the following context:
-                '''{input_text}'''. If the screenshot context '''{screenshot_text}''' 
-                is not empty, use this as context also.
+                After analyzing the text, please classify the ticket based on the criteria.
+                Ticket Type: '''{ticket_type_crit}'''
+                Ticket Priority: '''{ticket_priority_crit}'''
+                Module: Try to rationalize based on the options below.
+                Product: '''{product_type_crit}'''
 
-                After summarizing and analyzing the text, please classify 
-                the ticket with the following labels:
+                The ONLY CONTENT OUTPUT should be in a Python list format, from type, priority, module, and product.
+                Do NOT include anything before or after the list. Only include the LIST.
+                Example: ['Question', 'Normal', 'Account Issue', 'Sprout HR']
 
-                - Ticket Type: 
-                - Ticket Priority: 
-                - Module: 
-                - Product Type:
-
-                The FINAL/ONLY CONTENT OUTPUT should be in a Python list format, from product, priority, complaint, and support.
-                Example: ['Question', 'High', 'Salary', 'Sprout HR']
-
-                These must all be based from the list of '''{type}''', '''{priority}''', '''{module}''', and '''{product}'''.
+                For each category, only use the available options in the lists provided: '''{type}''', '''{priority}''', '''{module}''', '''{product}'''.
                 """
                 
                 ticket_output = openai.ChatCompletion.create(
                     engine=os.environ.get("LLM_DEPLOYMENT_NAME"),
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI, and will only output a list format in Python, without words before or after the list."},
+                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
                         {"role": "user", "content": prompt}
                     ]
                 )
@@ -173,16 +191,15 @@ def main():
                 rat_prompt_1 = f"""
                 Now, based on the criteria presented below, explain the reason for 
                 such given category tag: '''{value_1}'''. The context for your explanation
-                will come from '''{input_text}'''.
+                will come from '''{input_text}'''. Keep it direct and concise for the user.
 
-                Train yourself using these information provided:
-                '''{df}''', '''{Xfeatures}''' and '''{ylabels}'''.
+                Please use the criteria found in '''{ticket_type_crit}'''.
                 """
 
                 rat_output_1 = openai.ChatCompletion.create(
                     engine=os.environ.get("LLM_DEPLOYMENT_NAME"),
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
+                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI, providing explanations in 3 sentences."},
                         {"role": "user", "content": rat_prompt_1}
                     ]
                 )
@@ -192,16 +209,15 @@ def main():
                 rat_prompt_2 = f"""
                 Now, based on the criteria presented below, explain the reason for 
                 such given category tag: '''{value_2}'''. The context for your explanation
-                will come from '''{input_text}'''.
+                will come from '''{input_text}'''. Keep it direct and concise for the user.
 
-                Train yourself using these information provided:
-                '''{df}''', '''{Xfeatures}''' and '''{ylabels}'''.
+                Please use the criteria found in '''{ticket_priority_crit}'''.
                 """
 
                 rat_output_2 = openai.ChatCompletion.create(
                     engine=os.environ.get("LLM_DEPLOYMENT_NAME"),
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
+                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI, providing explanations in 3 sentences."},
                         {"role": "user", "content": rat_prompt_2}
                     ]
                 )
@@ -211,16 +227,13 @@ def main():
                 rat_prompt_3 = f"""
                 Now, based on the criteria presented below, explain the reason for 
                 such given category tag: '''{value_3}'''. The context for your explanation
-                will come from '''{input_text}'''.
-
-                Train yourself using these information provided:
-                '''{df}''', '''{Xfeatures}''' and '''{ylabels}'''.
+                will come from '''{input_text}'''. Keep it direct and concise for the user.
                 """
 
                 rat_output_3 = openai.ChatCompletion.create(
                     engine=os.environ.get("LLM_DEPLOYMENT_NAME"),
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
+                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI, providing explanations in 3 sentences."},
                         {"role": "user", "content": rat_prompt_3}
                     ]
                 )
@@ -230,16 +243,15 @@ def main():
                 rat_prompt_4 = f"""
                 Now, based on the criteria presented below, explain the reason for 
                 such given category tag: '''{value_4}'''. The context for your explanation
-                will come from '''{input_text}'''.
+                will come from '''{input_text}'''. Keep it direct and concise for the user.
 
-                Train yourself using these information provided:
-                '''{df}''', '''{Xfeatures}''' and '''{ylabels}'''.
+                Please use the criteria found in '''{product_type_crit}'''.
                 """
 
                 rat_output_4 = openai.ChatCompletion.create(
                     engine=os.environ.get("LLM_DEPLOYMENT_NAME"),
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
+                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI, providing explanations in 3 sentences."},
                         {"role": "user", "content": rat_prompt_4}
                     ]
                 )

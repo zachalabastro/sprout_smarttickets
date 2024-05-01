@@ -1,0 +1,61 @@
+Combined Ticket,Ticket Type,Ticket Priority,Module,Product
+"Problem Logging In to Sprout PayrollDear Support Team,
+ 
+I hope this email finds you well. I am writing to report a critical issue that is significantly hindering our payroll department's ability to perform their duties.
+ 
+Several members of our payroll team, myself included, are currently experiencing consistent login issues when attempting to access the Sprout Payroll system using our single sign-on (SSO) credentials. We have all made numerous attempts to log in, but are constantly met with error messages that prevent successful access.
+ 
+The time-sensitive nature of payroll processing necessitates immediate escalation of this issue. Any delays or disruptions in accessing the Sprout Payroll system could have serious downstream consequences for our organization, potentially impacting employee morale and financial obligations.
+ 
+Therefore, we kindly request your urgent assistance in resolving this login issue. To minimize the impact on our operations while a permanent solution is developed, we would also appreciate information on any temporary workarounds or alternative login methods that may exist.
+ 
+Thank you for your prompt attention to this critical matter. We look forward to your swift action in addressing this issue and ensuring our payroll department regains full access to the Sprout Payroll system as soon as possible.",Problem,High,SSO,Sprout Payroll
+"Sprout Log-In ConcernDear Support Team,
+ 
+I hope this email finds you well. I'm writing to report a critical issue that's hindering our team's ability to access Sprout HR.
+ 
+Multiple team members have recently been unable to log in to the platform. They're entering their correct credentials, but aren't receiving the email notifications containing the login verification codes as expected.
+ 
+This lack of access to Sprout HR is causing significant disruptions to our daily HR tasks and employee management activities. Since Sprout HR is vital for these processes, a prompt resolution is essential to minimize further impact on our workflow.
+ 
+We kindly request your urgent assistance in investigating and resolving this login issue. Specifically, we need to ensure that email notifications containing the necessary login verification codes are being sent out promptly and received by our team members without delay.
+ 
+If there are any troubleshooting steps or configurations we can check on our end to address this problem, we'd be grateful for detailed instructions. We're committed to cooperating effectively to find a solution.
+ 
+Thank you for your attention to this matter. We appreciate your prompt response and efforts in restoring normal functionality to the Sprout HR login process.",Problem,Normal,Email Notification,Sprout HR
+"Undeducted Advance Tech Loan Details | KMCC Employee ID No. C2868Greetings, Sprout Support
+I'm reaching out to you in regards to a possible inconsistency in my most recent Advance Tech Loan for KMCC staff members, associated with my employee ID C2868.
+Repayment of my Advance Tech Loans is expected to be automatically deducted from my pay each pay period, per the terms of the loan agreement. I have noticed, though, that my most recent paycheck did not include the P10,000 installment.
+I checked my payslip and my Sprout HR account, but I did not see anything about the loan repayment deduction.
+I'm contacting you right away to take care of this since failing to make loan payments could have a negative impact on my financial status.
+I respectfully ask for your help in looking into the reason the loan repayment was not taken out of my paycheck. 
+I also want clarification on the following issues:
+How can I make sure my next paycheck includes the corrected amount from the missed deduction?
+Will this oversight result in any penalties or late fees being paid?
+I appreciate your prompt attention to this issue. If you require any additional information from my end, kindly let me know.
+I appreciate your quick assistance and tolerance.",Problem,Normal,Loans,Sprout HR
+"Fwd: Access Level ProblemGreetings, Sprout Support
+I'm contacting you to ask some questions regarding a possible problem I saw with Sprout HR's biometric logs.
+I've recently discovered that the system is not correctly reflecting some employee biometric attendance punches. Although this doesn't totally stop us from keeping track of attendance, it has led to some small irregularities.
+I would be grateful if you could look into this and offer advice on the following:
+Exist any known problems with Sprout HR's biometric log integration?
+What debugging techniques are available to guarantee that employee biometric logs are accurately recorded?
+Is it possible, if needed, to manually add any missing logs?
+I appreciate you taking the time to help with this and for your assistance.",Problem,Normal,Access Levels,Sprout HR
+"Re: Inquiry | SSS Contribution CoverageDear Support Team,
+
+I hope this email finds you well. I'm writing to express a concern regarding the attendance report feature within Sprout HR and suggest a possible enhancement for greater accuracy.
+
+Recently, while reviewing our team's attendance reports, we've noted discrepancies between the recorded log-out times and the actual log-out times reported by employees. This inconsistency raises concerns about the reliability of the attendance tracking system.
+
+Proposed Enhancement:
+
+To improve the accuracy of attendance data and streamline our processes, could you explore the possibility of integrating the following:
+
+Verification Prompt: Implement a verification step for employees at the point of logging out. This could be a simple pop-up window where the employee confirms their log-out time. This added layer of validation would help mitigate potential errors.
+I believe this enhancement has the potential to significantly improve the accuracy of our attendance records within Sprout HR. Please let me know if you'd like to discuss this further or require additional examples of the discrepancies we've observed.
+
+Thank you for your attention to this matter. Your efforts to continuously improve Sprout HR are greatly appreciated.
+
+Sincerely,
+Caitlyn",Enhancement,Low,SSS Contribution,Sprout Payroll
