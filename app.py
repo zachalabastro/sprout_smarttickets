@@ -119,7 +119,7 @@ def main():
             with st.spinner('Loading Ticket Tags...'):
 
                 # Load Dataset
-                df = pd.read_csv("dependencies/fewshot_3final.csv") # Examples for few-shot inferencing
+                df = pd.read_csv("dependencies/fewshot_3final.csv") # Examples for few-shot inferencing (switch, if needed)
                 df = df.rename(columns=lambda x: x.strip())
 
                 # Criteria
