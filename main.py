@@ -10,13 +10,15 @@ from PIL import Image
 from openai import AzureOpenAI
 from st_copy_to_clipboard import st_copy_to_clipboard
 
+os.system('clear')
+
 # Load file upload folder
 upload_dir = "file_upload" # Replace accordingly
 output_dir = "file_output" # Replace accordingly
 output_file = "file_output/final_output.txt" # Replace accordingly
 os.makedirs(upload_dir, exist_ok=True)
 
-# Initial deletes to avoid token maximum capacity
+# Initial deletes to avoid token maximum capacity --
 # Delete uploaded files
 files = os.listdir(upload_dir)
 for file in files:
@@ -65,7 +67,7 @@ def main():
 
         # Upload the files selected
         if upload_file_button:
-            # Reoccuring deletes whenever new data/files are given
+            # Reoccuring deletes whenever new data/files are given --
             # Delete uploaded files
             files = os.listdir(upload_dir)
             for file in files:
@@ -186,7 +188,7 @@ def main():
 
                 - Ticket Type (Use criteria from '''{ticket_type_crit}'''): 
                 - Ticket Priority (Use criteria from '''{ticket_priority_crit}): 
-                - Module (Use context-based approach and options below.): 
+                - Module (Use context-based approach and options below. Only get from the options in '''{module}'''.): 
                 - Product (Use criteria from '''{product_type_crit}'''):
 
                 The FINAL/ONLY CONTENT OUTPUT should be in a Python list format, from product, priority, complaint, and support.
