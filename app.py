@@ -4,7 +4,7 @@ import time
 import streamlit as st
 import ast
 import pandas as pd
-import openai
+from openai import AzureOpenAI
 import pytesseract
 import PyPDF2
 from PIL import Image
@@ -24,10 +24,11 @@ module = df_full['Module'].unique()
 product = df_full['Product'].unique()
 
 # Azure OpenAI Key
-openai.api_type = "azure"
-openai.api_version = "2024-02-01" 
-openai.api_base = os.environ.get("AZURE_OPENAI_ENDPOINT")
-openai.api_key = os.environ.get("AZURE_OPENAI_KEY")
+client = AzureOpenAI(
+  api_key = os.getenv("AZURE_OPENAI_KEY"),  
+  api_version = "2024-02-01",
+  azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+)
 
 # Define the Streamlit app layout
 def main():
@@ -169,14 +170,14 @@ def main():
                 For each category, only use the available options in the lists provided: '''{type}''', '''{priority}''', '''{module}''', '''{product}'''.
                 """
                 
-                ticket_output = openai.ChatCompletion.create(
-                    engine=os.environ.get("LLM_DEPLOYMENT_NAME"),
+                response = client.chat.completions.create(
+                    model= os.getenv("LLM_DEPLOYMENT_NAME"), # model = "deployment_name".
                     messages=[
                         {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
                         {"role": "user", "content": prompt}
                     ]
                 )
-                ticket_output = ticket_output['choices'][0]['message']['content']
+                ticket_output = response.choices[0].message.content
                 tag_list = ast.literal_eval(ticket_output)
 
                 global value_1, value_2, value_3, value_4
@@ -196,14 +197,14 @@ def main():
                 Please use the criteria found in '''{ticket_type_crit}'''.
                 """
 
-                rat_output_1 = openai.ChatCompletion.create(
-                    engine=os.environ.get("LLM_DEPLOYMENT_NAME"),
+                rat_output_1 = client.chat.completions.create(
+                    model= os.getenv("LLM_DEPLOYMENT_NAME"), # model = "deployment_name".
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI, providing explanations in 3 sentences."},
+                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
                         {"role": "user", "content": rat_prompt_1}
                     ]
                 )
-                rat_output_1 = rat_output_1['choices'][0]['message']['content']
+                rat_output_1 = rat_output_1.choices[0].message.content
                 rationale_list.append(rat_output_1)
 
                 rat_prompt_2 = f"""
@@ -214,14 +215,14 @@ def main():
                 Please use the criteria found in '''{ticket_priority_crit}'''.
                 """
 
-                rat_output_2 = openai.ChatCompletion.create(
-                    engine=os.environ.get("LLM_DEPLOYMENT_NAME"),
+                rat_output_2 = client.chat.completions.create(
+                    model= os.getenv("LLM_DEPLOYMENT_NAME"), # model = "deployment_name".
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI, providing explanations in 3 sentences."},
+                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
                         {"role": "user", "content": rat_prompt_2}
                     ]
                 )
-                rat_output_2 = rat_output_2['choices'][0]['message']['content']
+                rat_output_2 = rat_output_2.choices[0].message.content
                 rationale_list.append(rat_output_2)
 
                 rat_prompt_3 = f"""
@@ -230,14 +231,14 @@ def main():
                 will come from '''{input_text}'''. Keep it direct and concise for the user.
                 """
 
-                rat_output_3 = openai.ChatCompletion.create(
-                    engine=os.environ.get("LLM_DEPLOYMENT_NAME"),
+                rat_output_3 = client.chat.completions.create(
+                    model= os.getenv("LLM_DEPLOYMENT_NAME"), # model = "deployment_name".
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI, providing explanations in 3 sentences."},
+                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
                         {"role": "user", "content": rat_prompt_3}
                     ]
                 )
-                rat_output_3 = rat_output_3['choices'][0]['message']['content']
+                rat_output_3 = rat_output_3.choices[0].message.content
                 rationale_list.append(rat_output_3)
 
                 rat_prompt_4 = f"""
@@ -248,14 +249,14 @@ def main():
                 Please use the criteria found in '''{product_type_crit}'''.
                 """
 
-                rat_output_4 = openai.ChatCompletion.create(
-                    engine=os.environ.get("LLM_DEPLOYMENT_NAME"),
+                rat_output_4 = client.chat.completions.create(
+                    model= os.getenv("LLM_DEPLOYMENT_NAME"), # model = "deployment_name".
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI, providing explanations in 3 sentences."},
+                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
                         {"role": "user", "content": rat_prompt_4}
                     ]
                 )
-                rat_output_4 = rat_output_4['choices'][0]['message']['content']
+                rat_output_4 = rat_output_4.choices[0].message.content
                 rationale_list.append(rat_output_4)
 
                 # Trim whitespace from each element in the list
