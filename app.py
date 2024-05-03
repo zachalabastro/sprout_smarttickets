@@ -10,18 +10,36 @@ from PIL import Image
 from openai import AzureOpenAI
 from st_copy_to_clipboard import st_copy_to_clipboard
 
+# Clear terminal
+os.system('clear')
+
 # Load file upload folder
 upload_dir = "file_upload" # Replace accordingly
 output_dir = "file_output" # Replace accordingly
 output_file = "file_output/final_output.txt" # Replace accordingly
 os.makedirs(upload_dir, exist_ok=True)
 
+# Initial deletes to avoid token maximum capacity --
+# Delete uploaded files
+files = os.listdir(upload_dir)
+for file in files:
+        os.remove(os.path.join(upload_dir, file))
+
+# Delete output files
+outputs = os.listdir(output_dir)
+for output in outputs:
+    os.remove(os.path.join(output_dir, output))
+
 # Load Dataset labels
 df_full = pd.read_csv("dependencies/CA_full.csv") # To provide the LLM with the tag options
 type = df_full['Ticket Type'].unique()
+print(type)
 priority = df_full['Ticket Priority'].unique()
+print(priority)
 module = df_full['Module'].unique()
+print(module)
 product = df_full['Product'].unique()
+print(product)
 
 # Azure OpenAI Key
 client = AzureOpenAI(
@@ -50,6 +68,7 @@ def main():
 
         # Upload the files selected
         if upload_file_button:
+            # Reoccuring deletes whenever new data/files are given --
             # Delete uploaded files
             files = os.listdir(upload_dir)
             for file in files:
@@ -123,6 +142,10 @@ def main():
                 df = pd.read_csv("dependencies/fewshot_3final.csv") # Examples for few-shot inferencing (switch, if needed)
                 df = df.rename(columns=lambda x: x.strip())
 
+                # Globals
+                global value_1, value_2, value_3, value_4
+                global rationale_1, rationale_2, rationale_3, rationale_4
+
                 # Criteria
                 ticket_type_crit = """
                 Question: Inquiries or clarifications about functionalities, how to use features, or general information requests not directly related to issues or disruptions.
@@ -150,37 +173,43 @@ def main():
                 Sprout Pulse: Tickets related to the tools for measuring and enhancing employee engagement and organizational health, such as survey distribution problems, analysis of employee feedback, and issues with deploying engagement initiatives.
                 """
 
-                prompt = f"""
-                Now, I want you to predict the 4 different labels for a new client complaint.
-                Please provide the tags of the following context: '''{input_text}'''. 
-                
-                If the screenshot context '''{screenshot_text}''' 
-                is not empty, use this as context also. If empty, don't mind it.
+                prompt1 = f"""
+                Look at the information from '''{df}'''. Train yourself on the data.
+                Understand the relationships between the columns, rows, and how the values are correspond. 
+                These are customer complaints that are categorized into certain tags, specificially: 
+                Ticket Type, Ticket Priority, Module, and Product.
 
-                After analyzing the text, please classify the ticket based on the criteria.
-                Ticket Type: '''{ticket_type_crit}'''
-                Ticket Priority: '''{ticket_priority_crit}'''
-                Module: Try to rationalize based on the options below.
-                Product: '''{product_type_crit}'''
+                Now, I want you to predict the 4 different labels for a new set of client complaint.
+                Please provide the tags of the following context:
+                '''{input_text}'''. If the screenshot context '''{screenshot_text}''' 
+                is not empty, use this as context also.
 
-                The ONLY CONTENT OUTPUT should be in a Python list format, from type, priority, module, and product.
-                Do NOT include anything before or after the list. Only include the LIST.
-                Example: ['Question', 'Normal', 'Account Issue', 'Sprout HR']
+                After summarizing and analyzing the text, please classify 
+                the ticket with the following labels:
 
-                For each category, only use the available options in the lists provided: '''{type}''', '''{priority}''', '''{module}''', '''{product}'''.
+                - Ticket Type (Use criteria from '''{ticket_type_crit}'''): 
+                - Ticket Priority (Use criteria from '''{ticket_priority_crit}): 
+                - Module (Use context-based approach and options below. Only get from the options in '''{module}'''.): 
+                - Product (Use criteria from '''{product_type_crit}'''):
+
+                The FINAL/ONLY CONTENT OUTPUT should be in a Python list format, from product, priority, complaint, and support.
+                Example: ['Question', 'Normal', 'SSO', 'Sprout HR']
+
+                These must all be based from the list of '''{type}''', '''{priority}''', '''{module}''', and '''{product}'''.
+                Base this on 
                 """
                 
                 response = client.chat.completions.create(
-                    model= os.getenv("LLM_DEPLOYMENT_NAME"), # model = "deployment_name".
+                    model= os.getenv("LLM_DEPLOYMENT_NAME"),
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
-                        {"role": "user", "content": prompt}
+                        {"role": "system", "content": "You are a large language model trained by OpenAI, and your task is to only provide the Python list needed."},
+                        {"role": "user", "content": prompt1}
                     ]
                 )
                 ticket_output = response.choices[0].message.content
                 tag_list = ast.literal_eval(ticket_output)
+                print(tag_list)
 
-                global value_1, value_2, value_3, value_4
                 value_1 = tag_list[0]
                 value_2 = tag_list[1]
                 value_3 = tag_list[2]
@@ -189,71 +218,71 @@ def main():
                 # Create an empty list for accuracy
                 rationale_list = []
 
-                rat_prompt_1 = f"""
+                prompt2 = f"""
                 Now, based on the criteria presented below, explain the reason for 
-                such given category tag: '''{value_1}'''. The context for your explanation
+                the given category tag for '''{value_1}'''. The context for your explanation
                 will come from '''{input_text}'''. Keep it direct and concise for the user.
 
                 Please use the criteria found in '''{ticket_type_crit}'''.
                 """
-
+                
                 rat_output_1 = client.chat.completions.create(
-                    model= os.getenv("LLM_DEPLOYMENT_NAME"), # model = "deployment_name".
+                    model= os.getenv("LLM_DEPLOYMENT_NAME"),
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
-                        {"role": "user", "content": rat_prompt_1}
+                        {"role": "system", "content": "You will provide the rationale to the prompt. Provide in only 3 sentences."},
+                        {"role": "user", "content": prompt2}
                     ]
                 )
                 rat_output_1 = rat_output_1.choices[0].message.content
                 rationale_list.append(rat_output_1)
 
-                rat_prompt_2 = f"""
+                prompt3 = f"""
                 Now, based on the criteria presented below, explain the reason for 
-                such given category tag: '''{value_2}'''. The context for your explanation
+                the given category tag for '''{value_2}'''. The context for your explanation
                 will come from '''{input_text}'''. Keep it direct and concise for the user.
 
                 Please use the criteria found in '''{ticket_priority_crit}'''.
                 """
 
                 rat_output_2 = client.chat.completions.create(
-                    model= os.getenv("LLM_DEPLOYMENT_NAME"), # model = "deployment_name".
+                    model= os.getenv("LLM_DEPLOYMENT_NAME"), 
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
-                        {"role": "user", "content": rat_prompt_2}
+                        {"role": "system", "content": "You will provide the rationale to the prompt. Provide in only 3 sentences."},
+                        {"role": "user", "content": prompt3}
                     ]
                 )
                 rat_output_2 = rat_output_2.choices[0].message.content
                 rationale_list.append(rat_output_2)
 
-                rat_prompt_3 = f"""
+                prompt4 = f"""
                 Now, based on the criteria presented below, explain the reason for 
-                such given category tag: '''{value_3}'''. The context for your explanation
+                the given category tag for '''{value_3}'''. The context for your explanation
                 will come from '''{input_text}'''. Keep it direct and concise for the user.
                 """
 
                 rat_output_3 = client.chat.completions.create(
-                    model= os.getenv("LLM_DEPLOYMENT_NAME"), # model = "deployment_name".
+                    model= os.getenv("LLM_DEPLOYMENT_NAME"), 
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
-                        {"role": "user", "content": rat_prompt_3}
+                        {"role": "system", "content": "You will provide the rationale to the prompt. Provide in only 3 sentences."},
+                        {"role": "user", "content": prompt4}
                     ]
                 )
                 rat_output_3 = rat_output_3.choices[0].message.content
                 rationale_list.append(rat_output_3)
 
-                rat_prompt_4 = f"""
+                prompt5 = f"""
                 Now, based on the criteria presented below, explain the reason for 
-                such given category tag: '''{value_4}'''. The context for your explanation
+                the given category tag for '''{value_4}'''. The context for your explanation
                 will come from '''{input_text}'''. Keep it direct and concise for the user.
 
                 Please use the criteria found in '''{product_type_crit}'''.
                 """
 
                 rat_output_4 = client.chat.completions.create(
-                    model= os.getenv("LLM_DEPLOYMENT_NAME"), # model = "deployment_name".
+                    model= os.getenv("LLM_DEPLOYMENT_NAME"), 
                     messages=[
-                        {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
-                        {"role": "user", "content": rat_prompt_4}
+                        {"role": "system", "content": "You will provide the rationale to the prompt. Provide in only 3 sentences."},
+                        {"role": "user", "content": prompt5}
                     ]
                 )
                 rat_output_4 = rat_output_4.choices[0].message.content
@@ -262,7 +291,6 @@ def main():
                 # Trim whitespace from each element in the list
                 final_rationale = [item.strip() for item in rationale_list]
                 
-                global rationale_1, rationale_2, rationale_3, rationale_4
                 rationale_1 = final_rationale[0]
                 rationale_2 = final_rationale[1]
                 rationale_3 = final_rationale[2]
@@ -277,11 +305,18 @@ def main():
             with col1:
                 st.markdown("Ticket Type")
                 st.code(value_1, language="python")
+                # Unselected tags
+                st.markdown("Unselected Tags")
+                new_list = [item for item in type if item != value_1]
+                st.code(new_list, language="txt")
                 st.markdown(rationale_1)
 
             with col2:
                 st.markdown("Module")
                 st.code(value_3, language="python")
+                st.markdown("Unselected Tags")
+                new_list = [item for item in module if item != value_3]
+                st.code(new_list, language="txt")
                 st.markdown(rationale_3)
 
             col3, col4 = st.columns(2)
@@ -289,11 +324,19 @@ def main():
             with col3:
                 st.markdown("Ticket Priority")
                 st.code(value_2, language="python")
+                # Unselected tags
+                st.markdown("Unselected Tags")
+                new_list = [item for item in priority if item != value_2]
+                st.code(new_list, language="txt")
                 st.markdown(rationale_2)
 
             with col4:
                 st.markdown("Product")
                 st.code(value_4, language="python")
+                # Unselected tags
+                st.markdown("Unselected Tags")
+                new_list = [item for item in product if item != value_4]
+                st.code(new_list, language="txt")
                 st.markdown(rationale_4)
 
             # Space below the tables
