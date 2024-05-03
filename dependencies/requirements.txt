@@ -1,2 +1,15 @@
-streamlit==1.14.0
-openai==0.28.0
+streamlit==1.28.0
+openai==1.25.0
+
+---
+
+import os
+import time
+import streamlit as st
+import ast
+import pandas as pd
+import pytesseract
+import PyPDF2
+from PIL import Image
+from openai import AzureOpenAI
+from st_copy_to_clipboard import st_copy_to_clipboard
